@@ -1,0 +1,10 @@
+.idea
+main
+kubeconfig.yaml
+kube-api-reflection
+.null-ls*
+tmp
+.env
+
+coverage.html
+coverage.out
