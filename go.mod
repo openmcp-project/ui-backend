@@ -2,16 +2,16 @@ module github.com/openmcp-project/ui-backend
 
 go 1.23.0
 
-toolchain go1.24.0
+toolchain go1.24.1
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/itchyny/gojq v0.12.17
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.1
-	k8s.io/apimachinery v0.32.1
-	k8s.io/client-go v0.32.1
+	k8s.io/api v0.32.3
+	k8s.io/apimachinery v0.32.3
+	k8s.io/client-go v0.32.3
 )
 
 require (
