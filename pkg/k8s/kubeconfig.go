@@ -26,10 +26,7 @@ type KubeConfig struct {
 			CertificateAuthorityData string `yaml:"certificate-authority-data"`
 		} `yaml:"cluster"`
 	} `yaml:"clusters"`
-	Users []struct {
-		Name string `yaml:"name"`
-		User User   `yaml:"user"`
-	} `yaml:"users"`
+	Users    []UserListEntry `yaml:"users"`
 	Contexts []struct {
 		Name    string `yaml:"name"`
 		Context struct {
@@ -39,6 +36,11 @@ type KubeConfig struct {
 		} `yaml:"context"`
 	} `yaml:"contexts"`
 	CurrentContext string `yaml:"current-context"`
+}
+
+type UserListEntry struct {
+	Name string `yaml:"name"`
+	User User   `yaml:"user"`
 }
 
 type User struct {

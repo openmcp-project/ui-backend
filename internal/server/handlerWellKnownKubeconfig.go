@@ -14,6 +14,11 @@ func wellKnownKubeconfigHandler(_ *shared, _ *http.Request, res *response) (*res
 		slog.Error("failed to get crate kubeconfig")
 		return nil, NewInternalServerError("failed to get crate kubeconfig")
 	}
+
+	// Remove the token from the kubeconfig.
+	// just to be sure.
+	crateKubeconfig.SetUserToken("")
+
 	content, err := yaml.Marshal(crateKubeconfig)
 	if err != nil {
 		slog.Error("failed to marshal kubeconfig", "err", err)
