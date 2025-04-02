@@ -23,13 +23,13 @@ func GetCrateKubeconfig() (k8s.KubeConfig, bool) {
 	defer crateKubeconfig.mu.RUnlock()
 
 	config := crateKubeconfig.kubeconfig
-	if len(config.Clusters) == 0 {
-		return config, false
-	}
-
 	deepCopiedUsers := make([]k8s.UserListEntry, len(config.Users))
 	copy(deepCopiedUsers, config.Users)
 	config.Users = deepCopiedUsers
+
+	if len(config.Clusters) == 0 {
+		return config, false
+	}
 
 	return config, true
 }
