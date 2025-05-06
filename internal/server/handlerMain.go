@@ -25,7 +25,6 @@ const (
 	contextHeader                         = "X-context"
 	useCrateClusterHeader                 = "X-use-crate"
 	authorizationHeader                   = "Authorization"
-	jsonPathHeader                        = "X-jsonpath"
 	jqHeader                              = "X-jq"
 	categoryHeader                        = "X-category"
 )
@@ -40,7 +39,6 @@ var prohibitedRequestHeaders = []string{
 	mcpAuthHeader,
 	contextHeader,
 	authorizationHeader,
-	jsonPathHeader,
 	"User-Agent",
 	"Host",
 }
@@ -61,7 +59,6 @@ type ExtractedRequestData struct {
 	UseCrateCluster                 bool
 	CrateAuthorization              string
 	Headers                         map[string][]string
-	JsonPath                        string
 	JQ                              string
 	Category                        string
 }
@@ -128,15 +125,10 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 		}
 	}(k8sResp.Body)
 
-	if (data.JsonPath == "" && data.JQ == "") || k8sResp.StatusCode >= 400 {
+	if (data.JQ == "") || k8sResp.StatusCode >= 400 {
 		err = CopyResponse(res, k8sResp, nil, nil)
 		if err != nil {
 			return nil, NewInternalServerError("failed to copy response: %v", err)
-		}
-	} else if data.JsonPath != "" {
-		err := res.buildJsonPathResponse(k8sResp, err, data)
-		if err != nil {
-			return nil, NewInternalServerError("failed to build jsonpath response: %v", err)
 		}
 	} else {
 		err := res.buildJqResponse(k8sResp, data)
@@ -163,7 +155,6 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		McpAuthorization:                r.Header.Get(mcpAuthHeader),
 		McpName:                         r.Header.Get(mcpName),
 		CrateAuthorization:              r.Header.Get(authorizationHeader),
-		JsonPath:                        r.Header.Get(jsonPathHeader),
 		JQ:                              r.Header.Get(jqHeader),
 		Category:                        r.Header.Get(categoryHeader),
 	}
@@ -199,22 +190,6 @@ func (r *response) buildJqResponse(k8sResp *http.Response, data ExtractedRequest
 
 	err = CopyResponse(r, k8sResp, []byte(parsedJson), prohibitedResponseHeaders)
 
-	r.contentType = "application/json"
-	return err
-}
-
-func (r *response) buildJsonPathResponse(k8sResp *http.Response, err error, data ExtractedRequestData) error {
-	body, errR := io.ReadAll(k8sResp.Body)
-	if errR != nil {
-		return errors.Join(errors.New("failed to read api server response"), err)
-	}
-
-	parsedJson, err := ParseJsonPath(body, data.JsonPath)
-	if err != nil {
-		return errors.Join(errors.New("failed to parse response with jsonpath"), err)
-	}
-
-	err = CopyResponse(r, k8sResp, parsedJson, prohibitedResponseHeaders)
 	r.contentType = "application/json"
 	return err
 }

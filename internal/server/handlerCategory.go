@@ -107,13 +107,7 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 	var result []byte = append([]byte("["), bytes.Join(resultData, []byte(","))[:]...)
 	result = append(result, []byte("]")[:]...)
 
-	if data.JsonPath != "" {
-		result, err = ParseJsonPath(result, data.JsonPath)
-		if err != nil {
-			slog.Error("failed to parse json path", "err", err)
-			return nil, NewInternalServerError("failed to parse json path")
-		}
-	} else if data.JQ != "" {
+	if data.JQ != "" {
 		resultString, err := ParseJQ(result, data.JQ)
 		if err != nil {
 			slog.Error("failed to parse jq", "err", err)
