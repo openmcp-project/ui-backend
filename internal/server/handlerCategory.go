@@ -46,13 +46,13 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 
 	var config k8s.KubeConfig
 	if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
-		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorization, crateKubeconfig)
+		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.Authorization, crateKubeconfig)
 		if err != nil {
 			slog.Error("failed to get control plane api config", "err", err)
 			return nil, NewInternalServerError("failed to get control plane api config")
 		}
-		if data.McpAuthorization != "" {
-			config.SetUserToken(data.McpAuthorization)
+		if data.Authorization != "" {
+			config.SetUserToken(data.Authorization)
 		}
 	} else {
 		slog.Error("either use %s: true or provide %s, %s and %s headers", useCrateClusterHeader, projectNameHeader, workspaceNameHeader, mcpName)

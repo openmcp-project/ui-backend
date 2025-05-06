@@ -21,7 +21,6 @@ const (
 	projectNameHeader                     = "X-project"
 	workspaceNameHeader                   = "X-workspace"
 	mcpName                               = "X-mcp"
-	mcpAuthHeader                         = "X-mcp-authorization"
 	contextHeader                         = "X-context"
 	useCrateClusterHeader                 = "X-use-crate"
 	authorizationHeader                   = "Authorization"
@@ -36,7 +35,6 @@ var prohibitedRequestHeaders = []string{
 	projectNameHeader,
 	workspaceNameHeader,
 	mcpName,
-	mcpAuthHeader,
 	contextHeader,
 	authorizationHeader,
 	"User-Agent",
@@ -54,10 +52,9 @@ type ExtractedRequestData struct {
 	ProjectName                     string
 	WorkspaceName                   string
 	McpName                         string
-	McpAuthorization                string
 	ContextName                     string
 	UseCrateCluster                 bool
-	CrateAuthorization              string
+	Authorization                   string
 	Headers                         map[string][]string
 	JQ                              string
 	Category                        string
@@ -90,15 +87,15 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 	var config k8s.KubeConfig
 	if data.UseCrateCluster {
 		config = crateKubeconfig
-		config.SetUserToken(data.CrateAuthorization)
+		config.SetUserToken(data.Authorization)
 	} else if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
-		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorization, crateKubeconfig)
+		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.Authorization, crateKubeconfig)
 		if err != nil {
 			slog.Error("failed to get control plane api config", "err", err)
 			return nil, NewInternalServerError("failed to get control plane api config")
 		}
-		if data.McpAuthorization != "" {
-			config.SetUserToken(data.McpAuthorization)
+		if data.Authorization != "" {
+			config.SetUserToken(data.Authorization)
 		}
 	} else {
 		slog.Error("either use %s: true or provide %s, %s and %s headers", useCrateClusterHeader, projectNameHeader, workspaceNameHeader, mcpName)
@@ -152,9 +149,8 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		ProjectName:                     r.Header.Get(projectNameHeader),
 		WorkspaceName:                   r.Header.Get(workspaceNameHeader),
 		ContextName:                     r.Header.Get(contextHeader),
-		McpAuthorization:                r.Header.Get(mcpAuthHeader),
 		McpName:                         r.Header.Get(mcpName),
-		CrateAuthorization:              r.Header.Get(authorizationHeader),
+		Authorization:                   r.Header.Get(authorizationHeader),
 		JQ:                              r.Header.Get(jqHeader),
 		Category:                        r.Header.Get(categoryHeader),
 	}
@@ -170,7 +166,7 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		rd.UseCrateCluster = useCrateCluster
 	}
 
-	if rd.CrateAuthorization == "" {
+	if rd.Authorization == "" {
 		return ExtractedRequestData{}, fmt.Errorf("%s header is required", authorizationHeader)
 	}
 
