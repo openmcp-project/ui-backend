@@ -14,7 +14,6 @@ func NewMiddleware(theCrateKube k8s.Kube, theDownstreamKube k8s.Kube) *http.Serv
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/.well-known/openmcp/kubeconfig", defaultHandler(shared, wellKnownKubeconfigHandler))
 	mux.HandleFunc("/managed", defaultHandler(shared, managedHandler))
 	mux.HandleFunc("/c/", defaultHandler(shared, categoryHandler))
 	mux.HandleFunc("/", defaultHandler(shared, mainHandler))
