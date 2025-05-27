@@ -2,7 +2,7 @@ name: Cleanup main images
 
 on:
   schedule:
-    - cron: "5 * * * *"
+    - cron: "5 1 * * *"
   workflow_dispatch:
 
 env:
