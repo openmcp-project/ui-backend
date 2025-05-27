@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io/openmcp-project
-  IMAGE_NAME: mcp-ui-frontend
+  IMAGE_NAME: mcp-ui-backend
   KEEP_X_IMAGES: 5
 
 jobs:
@@ -22,7 +22,6 @@ jobs:
         with:
           package-name: ${{ env.IMAGE_NAME }}
           package-type: "container"
-          # Keep the latest 5 versions *only* from those that are *not* ignored
           min-versions-to-keep: ${{ env.KEEP_X_IMAGES }}
           # Ignore any version that does NOT start with 'main-'
           ignore-versions: "^(?!main-).*$"
