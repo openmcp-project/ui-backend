@@ -60,7 +60,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           sbom: true
-          provenance: mode=max
+          provenance: false
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.nextVersion }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
