@@ -54,7 +54,8 @@ type ExtractedRequestData struct {
 	McpName                         string
 	ContextName                     string
 	UseCrateCluster                 bool
-	Authorization                   string
+	CrateAuthorizationToken         string
+	McpAuthorizationToken           string
 	Headers                         map[string][]string
 	JQ                              string
 	Category                        string
@@ -87,16 +88,18 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 	var config k8s.KubeConfig
 	if data.UseCrateCluster {
 		config = crateKubeconfig
-		config.SetUserToken(data.Authorization)
+		config.SetUserToken(data.CrateAuthorizationToken)
 	} else if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
-		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.Authorization, crateKubeconfig)
+		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
 		if err != nil {
 			slog.Error("failed to get control plane api config", "err", err)
 			return nil, NewInternalServerError("failed to get control plane api config")
 		}
-		if data.Authorization != "" {
-			config.SetUserToken(data.Authorization)
+		if data.McpAuthorizationToken == "" {
+			slog.Error("MCP authorization token not provided")
+			return nil, NewBadRequestError("MCP authorization token not provided")
 		}
+		config.SetUserToken(data.McpAuthorizationToken)
 	} else {
 		slog.Error("either use %s: true or provide %s, %s and %s headers", useCrateClusterHeader, projectNameHeader, workspaceNameHeader, mcpName)
 		return nil, NewBadRequestError(
@@ -138,6 +141,15 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 }
 
 func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
+	if r.Header.Get(authorizationHeader) == "" {
+		return ExtractedRequestData{}, fmt.Errorf("%s header is required", authorizationHeader)
+	}
+
+	crateToken, mcpToken, err := parseAuthorizationHeaderWithDoubleTokens(r.Header.Get(authorizationHeader))
+	if err != nil {
+		return ExtractedRequestData{}, fmt.Errorf("invalid %s header: %w", authorizationHeader, err)
+	}
+
 	rd := ExtractedRequestData{
 		Path:                            r.URL.Path,
 		Query:                           r.URL.Query(),
@@ -150,7 +162,8 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		WorkspaceName:                   r.Header.Get(workspaceNameHeader),
 		ContextName:                     r.Header.Get(contextHeader),
 		McpName:                         r.Header.Get(mcpName),
-		Authorization:                   r.Header.Get(authorizationHeader),
+		CrateAuthorizationToken:         crateToken,
+		McpAuthorizationToken:           mcpToken,
 		JQ:                              r.Header.Get(jqHeader),
 		Category:                        r.Header.Get(categoryHeader),
 	}
@@ -164,10 +177,6 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		}
 
 		rd.UseCrateCluster = useCrateCluster
-	}
-
-	if rd.Authorization == "" {
-		return ExtractedRequestData{}, fmt.Errorf("%s header is required", authorizationHeader)
 	}
 
 	return rd, nil

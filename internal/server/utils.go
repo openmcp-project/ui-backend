@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -102,4 +103,22 @@ func ParseJQ(inputJson []byte, inputJQ string) (string, error) {
 	}
 
 	return strings.Join(result[:], "\n"), nil
+}
+
+// parseAuthorizationHeaderWithDoubleTokens parses an authorization header that may contain two tokens separated by a comma.
+// It returns the first token and the second token (if present). If the second token is absent, it returns an empty string for it.
+// If the header is empty or contains more than two tokens, it returns an error.
+func parseAuthorizationHeaderWithDoubleTokens(authHeader string) (string, string, error) {
+	if authHeader == "" {
+		return "", "", fmt.Errorf("authorization header is empty")
+	}
+
+	tokens := strings.Split(authHeader, ",")
+	if len(tokens) > 2 {
+		return "", "", fmt.Errorf("authorization header must contain two or less tokens separated by a space")
+	}
+	if len(tokens) == 1 {
+		return tokens[0], "", nil
+	}
+	return tokens[0], tokens[1], nil
 }
