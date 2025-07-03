@@ -10,7 +10,7 @@ env:
   ORG: openmcp-project
   IMAGE_NAME: mcp-ui-backend
   KEEP_X_IMAGES: 5
-  TAG_PREFIX: "main-"
+  TAG_PREFIX: "main-*"
 
 jobs:
   clean:
