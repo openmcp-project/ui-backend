@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,6 +14,26 @@ import (
 
 	"github.com/openmcp-project/ui-backend/internal/server"
 )
+
+var (
+	Version = "unknown"
+	SHA     = "unknown"
+)
+
+type versionResponse struct {
+	Version string `json:"version"`
+	SHA     string `json:"sha"`
+}
+
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	resp := versionResponse{
+		Version: Version,
+		SHA:     SHA,
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
 
 func main() {
 	ctx := context.Background()
@@ -30,6 +51,9 @@ func main() {
 	downstreamKube := k8s.HttpKube{}
 
 	mux := server.NewMiddleware(cachingKube, downstreamKube)
+	
+	// Add version endpoint
+	mux.HandleFunc("/version", versionHandler)
 
 	address := ":3000"
 	slog.Info("Starting server", "address", address)

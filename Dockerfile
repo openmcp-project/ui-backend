@@ -8,7 +8,10 @@ RUN go mod download
 
 COPY . ./
 
-RUN CGO_ENABLED=0 go build -o /bin/app cmd/server/main.go
+ARG VERSION=unknown
+ARG SHA=unknown
+
+RUN CGO_ENABLED=0 go build -ldflags="-X 'main.Version=${VERSION}' -X 'main.SHA=${SHA}'" -o /bin/app cmd/server/main.go
 
 ## Deploy
 FROM scratch
