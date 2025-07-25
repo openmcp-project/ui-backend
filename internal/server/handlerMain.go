@@ -21,7 +21,6 @@ const (
 	projectNameHeader                     = "X-project"
 	workspaceNameHeader                   = "X-workspace"
 	mcpName                               = "X-mcp"
-	contextHeader                         = "X-context"
 	useCrateClusterHeader                 = "X-use-crate"
 	authorizationHeader                   = "Authorization"
 	jqHeader                              = "X-jq"
@@ -35,7 +34,6 @@ var prohibitedRequestHeaders = []string{
 	projectNameHeader,
 	workspaceNameHeader,
 	mcpName,
-	contextHeader,
 	authorizationHeader,
 	"User-Agent",
 	"Host",
@@ -160,7 +158,6 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		ClusterCertificateAuthorityData: r.Header.Get(clusterCertificateAuthorityDataHeader),
 		ProjectName:                     r.Header.Get(projectNameHeader),
 		WorkspaceName:                   r.Header.Get(workspaceNameHeader),
-		ContextName:                     r.Header.Get(contextHeader),
 		McpName:                         r.Header.Get(mcpName),
 		CrateAuthorizationToken:         crateToken,
 		McpAuthorizationToken:           mcpToken,
