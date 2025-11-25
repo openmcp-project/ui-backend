@@ -37,6 +37,17 @@ var prohibitedRequestHeaders = []string{
 	authorizationHeader,
 	"User-Agent",
 	"Host",
+	// HTTP hop-by-hop headers that should not be forwarded to downstream services
+	"Accept-Encoding",
+	"Content-Encoding",
+	"Transfer-Encoding",
+	"Connection",
+	"Keep-Alive",
+	"Upgrade",
+	"TE",
+	"Trailer",
+	"Proxy-Authorization",
+	"Proxy-Authenticate",
 }
 
 type ExtractedRequestData struct {
