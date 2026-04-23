@@ -18,6 +18,8 @@ WORKDIR /
 COPY --from=build /bin/app /bin/app
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+USER 65532:65532
+
 EXPOSE 3000
 
 ENTRYPOINT ["/bin/app"]
