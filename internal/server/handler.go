@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/openmcp-project/ui-backend/pkg/k8s"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -11,9 +12,16 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
+type JQConfig struct {
+	MaxExpressionLength int
+	ExecutionTimeout    time.Duration
+	MaxResults          int
+}
+
 type shared struct {
 	crateKube      k8s.Kube
 	downstreamKube k8s.Kube
+	jqConfig       JQConfig
 }
 
 type handler func(shared *shared, req *http.Request, res *response) (*response, *HttpError)

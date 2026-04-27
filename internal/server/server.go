@@ -6,10 +6,11 @@ import (
 	"github.com/openmcp-project/ui-backend/pkg/k8s"
 )
 
-func NewMiddleware(theCrateKube k8s.Kube, theDownstreamKube k8s.Kube) *http.ServeMux {
+func NewMiddleware(theCrateKube k8s.Kube, theDownstreamKube k8s.Kube, jqConfig JQConfig) *http.ServeMux {
 	shared := &shared{
 		crateKube:      theCrateKube,
 		downstreamKube: theDownstreamKube,
+		jqConfig:       jqConfig,
 	}
 
 	mux := http.NewServeMux()

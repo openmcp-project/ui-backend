@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/openmcp-project/ui-backend/internal/utils"
@@ -29,11 +30,26 @@ func main() {
 	cachingKube := k8s.NewCachingKube(k8s.HttpKube{}, time.Second*30, time.Minute)
 	downstreamKube := k8s.HttpKube{}
 
-	mux := server.NewMiddleware(cachingKube, downstreamKube)
+	jqConfig := server.JQConfig{
+		MaxExpressionLength: getEnvInt("JQ_MAX_EXPRESSION_LENGTH", 500),
+		ExecutionTimeout:    time.Duration(getEnvInt("JQ_EXECUTION_TIMEOUT_SECONDS", 5)) * time.Second,
+		MaxResults:          getEnvInt("JQ_MAX_RESULTS", 10000),
+	}
+
+	mux := server.NewMiddleware(cachingKube, downstreamKube, jqConfig)
 
 	address := ":3000"
 	slog.Info("Starting server", "address", address)
 	if err := http.ListenAndServe(address, mux); err != nil {
 		slog.Error("failed to start server", "err", err)
 	}
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return defaultVal
 }
