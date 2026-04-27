@@ -130,10 +130,10 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 			return nil, NewInternalServerError("failed to copy response: %v", err)
 		}
 	} else {
-		if s.jqConfig.MaxExpressionLength > 0 && len(data.JQ) > s.jqConfig.MaxExpressionLength {
+		if len(data.JQ) > s.jqConfig.MaxExpressionLength {
 			return nil, NewBadRequestError("jq expression exceeds maximum allowed length")
 		}
-		err := res.buildJqResponse(k8sResp, data, s.jqConfig)
+		err := res.buildJqResponse(req.Context(), k8sResp, data, s.jqConfig)
 		if err != nil {
 			return nil, NewInternalServerError("failed to build jq response: %v", err)
 		}
@@ -183,13 +183,13 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 	return rd, nil
 }
 
-func (r *response) buildJqResponse(k8sResp *http.Response, data ExtractedRequestData, jqConfig JQConfig) error {
+func (r *response) buildJqResponse(parentCtx context.Context, k8sResp *http.Response, data ExtractedRequestData, jqConfig JQConfig) error {
 	body, err := io.ReadAll(k8sResp.Body)
 	if err != nil {
 		return errors.Join(errors.New("failed to read api server response"), err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), jqConfig.ExecutionTimeout)
+	ctx, cancel := context.WithTimeout(parentCtx, jqConfig.ExecutionTimeout)
 	defer cancel()
 
 	parsedJson, err := ParseJQ(ctx, body, data.JQ, jqConfig.MaxResults)

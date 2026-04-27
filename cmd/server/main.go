@@ -32,7 +32,7 @@ func main() {
 
 	jqConfig := server.JQConfig{
 		MaxExpressionLength: getEnvInt("JQ_MAX_EXPRESSION_LENGTH", 500),
-		ExecutionTimeout:    time.Duration(getEnvInt("JQ_EXECUTION_TIMEOUT_SECONDS", 5)) * time.Second,
+		ExecutionTimeout:    getEnvDuration("JQ_EXECUTION_TIMEOUT", 5*time.Second),
 		MaxResults:          getEnvInt("JQ_MAX_RESULTS", 10000),
 	}
 
@@ -49,6 +49,15 @@ func getEnvInt(key string, defaultVal int) int {
 	if v := os.Getenv(key); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
 			return i
+		}
+	}
+	return defaultVal
+}
+
+func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
 		}
 	}
 	return defaultVal

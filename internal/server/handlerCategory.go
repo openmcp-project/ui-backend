@@ -111,11 +111,11 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 	result = append(result, []byte("]")[:]...)
 
 	if data.JQ != "" {
-		if s.jqConfig.MaxExpressionLength > 0 && len(data.JQ) > s.jqConfig.MaxExpressionLength {
+		if len(data.JQ) > s.jqConfig.MaxExpressionLength {
 			return nil, NewBadRequestError("jq expression exceeds maximum allowed length")
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), s.jqConfig.ExecutionTimeout)
+		ctx, cancel := context.WithTimeout(req.Context(), s.jqConfig.ExecutionTimeout)
 		defer cancel()
 
 		resultString, err := ParseJQ(ctx, result, data.JQ, s.jqConfig.MaxResults)
