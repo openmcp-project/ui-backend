@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"k8s.io/client-go/util/jsonpath"
 )
 
 func InSlice[T comparable](slice []T, el T) bool {
@@ -50,26 +49,6 @@ func CopyResponse(resp *response, upstream *http.Response, customBody []byte, fi
 
 	}
 	return nil
-}
-
-func ParseJsonPath(inputJson []byte, inputJsonPath string) ([]byte, error) {
-	j := jsonpath.New("jsonpath-parser")
-
-	err := j.Parse(inputJsonPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var jsonData interface{}
-	err = json.Unmarshal(inputJson, &jsonData)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	err = j.Execute(&buf, jsonData)
-
-	return buf.Bytes(), err
 }
 
 func ParseJQ(inputJson []byte, inputJQ string) (string, error) {
