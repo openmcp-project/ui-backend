@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -110,10 +111,17 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 	result = append(result, []byte("]")[:]...)
 
 	if data.JQ != "" {
-		resultString, err := ParseJQ(result, data.JQ)
+		if len(data.JQ) > s.jqConfig.MaxExpressionLength {
+			return nil, NewBadRequestError("jq expression exceeds maximum allowed length")
+		}
+
+		ctx, cancel := context.WithTimeout(req.Context(), s.jqConfig.ExecutionTimeout)
+		defer cancel()
+
+		resultString, err := ParseJQ(ctx, result, data.JQ, s.jqConfig.MaxResults)
 		if err != nil {
-			slog.Error("failed to parse jq", "err", err)
-			return nil, NewInternalServerError("failed to parse jq")
+			slog.Error("jq execution failed", "err", err)
+			return nil, NewInternalServerError("failed to process jq expression")
 		}
 
 		result = []byte(resultString)

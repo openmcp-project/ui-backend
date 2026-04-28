@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"k8s.io/client-go/util/jsonpath"
 )
 
 func InSlice[T comparable](slice []T, el T) bool {
@@ -52,53 +52,33 @@ func CopyResponse(resp *response, upstream *http.Response, customBody []byte, fi
 	return nil
 }
 
-func ParseJsonPath(inputJson []byte, inputJsonPath string) ([]byte, error) {
-	j := jsonpath.New("jsonpath-parser")
-
-	err := j.Parse(inputJsonPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var jsonData interface{}
-	err = json.Unmarshal(inputJson, &jsonData)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	err = j.Execute(&buf, jsonData)
-
-	return buf.Bytes(), err
-}
-
-func ParseJQ(inputJson []byte, inputJQ string) (string, error) {
+func ParseJQ(ctx context.Context, inputJson []byte, inputJQ string, maxResults int) (string, error) {
 	query, err := gojq.Parse(inputJQ)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid jq expression")
 	}
 
 	var jsonData interface{}
 	err = json.Unmarshal(inputJson, &jsonData)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid JSON input")
 	}
 
-	iter := query.Run(jsonData)
+	iter := query.RunWithContext(ctx, jsonData)
 	var result []string
-	for {
+	for i := 0; i < maxResults; i++ {
 		v, ok := iter.Next()
 		if !ok {
 			break
 		}
 		if err, ok := v.(error); ok {
-			return "", err
+			return "", fmt.Errorf("jq execution failed: %w", err)
 		}
 
 		if b, err := json.Marshal(v); err == nil {
 			result = append(result, string(b))
 		} else {
-			return "", err
+			return "", fmt.Errorf("failed to marshal jq result")
 		}
 	}
 
