@@ -7,6 +7,51 @@ import (
 	"github.com/openmcp-project/ui-backend/pkg/k8s"
 )
 
+func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, controlPlaneName, crateToken string, crateKubeconfig k8s.KubeConfig) (k8s.KubeConfig, error) {
+	namespace := fmt.Sprintf("project-%s--ws-%s", projectName, workspaceName)
+	path := fmt.Sprintf("/apis/core.openmcp.cloud/v2alpha1/namespaces/%s/managedcontrolplanev2s/%s", namespace, controlPlaneName)
+
+	cp := ControlPlaneV2{}
+
+	crateKubeconfig.SetUserToken(crateToken)
+
+	err := k8s.RequestApiServer(kube, k8s.Request{
+		Method: "GET",
+		Path:   path,
+	}, crateKubeconfig, &cp)
+	if err != nil {
+		return k8s.KubeConfig{}, err
+	}
+
+	secretName := cp.Status.Access.OidcOpenmcp.Name
+	if secretName == "" {
+		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 oidc_openmcp secret name is empty")
+	}
+
+	secret := k8s.Secret{}
+	secretPath := fmt.Sprintf("api/v1/namespaces/%s/secrets/%s", namespace, secretName)
+	err = k8s.RequestApiServer(kube, k8s.Request{
+		Method: "GET",
+		Path:   secretPath,
+	}, crateKubeconfig, &secret)
+	if err != nil {
+		return k8s.KubeConfig{}, err
+	}
+
+	data := secret.Data["kubeconfig"]
+	if len(data) == 0 {
+		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 kubeconfig data is empty")
+	}
+
+	kubeconfig, err := k8s.ParseKubeconfig(string(data))
+	if err != nil {
+		slog.Error("failed to parse control-plane v2 kubeconfig", "err", err)
+		return k8s.KubeConfig{}, err
+	}
+
+	return kubeconfig, nil
+}
+
 func GetControlPlaneKubeconfig(kube k8s.Kube, projectName, workspaceName, controlPlaneName, crateToken string, crateKubeconfig k8s.KubeConfig) (k8s.KubeConfig, error) {
 	path := fmt.Sprintf("/apis/core.openmcp.cloud/v1alpha1/namespaces/project-%s--ws-%s/managedcontrolplanes/%s", projectName, workspaceName, controlPlaneName)
 
@@ -91,5 +136,16 @@ type ControlPlane struct {
 			ObservedGeneration int    `json:"observedGeneration"`
 			Status             string `json:"status"`
 		} `json:"dataplane"`
+	} `json:"status"`
+}
+
+type ControlPlaneV2 struct {
+	k8s.Resource
+	Status struct {
+		Access struct {
+			OidcOpenmcp struct {
+				Name string `json:"name"`
+			} `json:"oidc_openmcp"`
+		} `json:"access"`
 	} `json:"status"`
 }

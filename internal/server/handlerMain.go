@@ -26,6 +26,7 @@ const (
 	authorizationHeader                   = "Authorization"
 	jqHeader                              = "X-jq"
 	categoryHeader                        = "X-category"
+	mcpVersionHeader                      = "X-mcp-version"
 )
 
 var prohibitedRequestHeaders = []string{
@@ -35,6 +36,7 @@ var prohibitedRequestHeaders = []string{
 	projectNameHeader,
 	workspaceNameHeader,
 	mcpName,
+	mcpVersionHeader,
 	authorizationHeader,
 	"User-Agent",
 	"Host",
@@ -69,6 +71,7 @@ type ExtractedRequestData struct {
 	Headers                         map[string][]string
 	JQ                              string
 	Category                        string
+	McpVersion                      string
 }
 
 var prohibitedResponseHeaders = []string{"Content-Type", "Content-Length"}
@@ -100,7 +103,11 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 		config = crateKubeconfig
 		config.SetUserToken(data.CrateAuthorizationToken)
 	} else if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
-		config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
+		if data.McpVersion == "v2" {
+			config, err = openmcp.GetControlPlaneV2Kubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
+		} else {
+			config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
+		}
 		if err != nil {
 			slog.Error("failed to get control plane api config", "err", err)
 			return nil, NewInternalServerError("failed to get control plane api config")
@@ -178,6 +185,7 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		McpAuthorizationToken:           mcpToken,
 		JQ:                              r.Header.Get(jqHeader),
 		Category:                        r.Header.Get(categoryHeader),
+		McpVersion:                      r.Header.Get(mcpVersionHeader),
 	}
 
 	rd.Headers = r.Header
