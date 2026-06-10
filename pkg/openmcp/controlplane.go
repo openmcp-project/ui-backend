@@ -23,7 +23,14 @@ func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, cont
 		return k8s.KubeConfig{}, err
 	}
 
-	secretName := cp.Status.Access.OidcOpenmcp.Name
+	ref, ok := cp.Status.Access["oidc_openmcp"]
+	if !ok {
+		ref, ok = cp.Status.Access["default"]
+	}
+	if !ok {
+		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 has no oidc_openmcp or default access entry")
+	}
+	secretName := ref.Name
 	if secretName == "" {
 		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 oidc_openmcp secret name is empty")
 	}
@@ -139,13 +146,13 @@ type ControlPlane struct {
 	} `json:"status"`
 }
 
+type LocalObjectReference struct {
+	Name string `json:"name"`
+}
+
 type ControlPlaneV2 struct {
 	k8s.Resource
 	Status struct {
-		Access struct {
-			OidcOpenmcp struct {
-				Name string `json:"name"`
-			} `json:"oidc_openmcp"`
-		} `json:"access"`
+		Access map[string]LocalObjectReference `json:"access"`
 	} `json:"status"`
 }
