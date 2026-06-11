@@ -22,8 +22,8 @@ func main() {
 
 	kubeconfigPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
 	if kubeconfigPath == "" {
-		slog.Error("env variable '%s' with kubeconfig path not set", clientcmd.RecommendedConfigPathEnvVar)
-		return
+		kubeconfigPath = clientcmd.RecommendedHomeFile
+		slog.Info("env variable not set, using default kubeconfig path", "env", clientcmd.RecommendedConfigPathEnvVar, "path", kubeconfigPath)
 	}
 	go utils.StartListeningOnKubeconfig(ctx, kubeconfigPath)
 
