@@ -9,7 +9,7 @@ import (
 
 func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, controlPlaneName, crateToken string, crateKubeconfig k8s.KubeConfig) (k8s.KubeConfig, error) {
 	namespace := fmt.Sprintf("project-%s--ws-%s", projectName, workspaceName)
-	path := fmt.Sprintf("/apis/core.openmcp.cloud/v2alpha1/namespaces/%s/managedcontrolplanev2s/%s", namespace, controlPlaneName)
+	path := fmt.Sprintf("/apis/core.open-control-plane.io/v2alpha1/namespaces/%s/controlplanes/%s", namespace, controlPlaneName)
 
 	cp := ControlPlaneV2{}
 
