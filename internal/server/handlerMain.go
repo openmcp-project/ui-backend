@@ -27,6 +27,7 @@ const (
 	jqHeader                              = "X-jq"
 	categoryHeader                        = "X-category"
 	mcpVersionHeader                      = "X-mcp-version"
+	mcpIdpHeader                          = "X-mcp-idp"
 )
 
 var prohibitedRequestHeaders = []string{
@@ -37,6 +38,7 @@ var prohibitedRequestHeaders = []string{
 	workspaceNameHeader,
 	mcpName,
 	mcpVersionHeader,
+	mcpIdpHeader,
 	authorizationHeader,
 	"User-Agent",
 	"Host",
@@ -72,6 +74,7 @@ type ExtractedRequestData struct {
 	JQ                              string
 	Category                        string
 	McpVersion                      string
+	McpIdp                          string
 }
 
 var prohibitedResponseHeaders = []string{"Content-Type", "Content-Length"}
@@ -104,7 +107,7 @@ func mainHandler(s *shared, req *http.Request, res *response) (*response, *HttpE
 		config.SetUserToken(data.CrateAuthorizationToken)
 	} else if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
 		if data.McpVersion == "v2" {
-			config, err = openmcp.GetControlPlaneV2Kubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
+			config, err = openmcp.GetControlPlaneV2Kubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.McpIdp, data.CrateAuthorizationToken, crateKubeconfig)
 		} else {
 			config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
 		}
@@ -186,6 +189,7 @@ func extractRequestData(r *http.Request) (ExtractedRequestData, error) {
 		JQ:                              r.Header.Get(jqHeader),
 		Category:                        r.Header.Get(categoryHeader),
 		McpVersion:                      r.Header.Get(mcpVersionHeader),
+		McpIdp:                          r.Header.Get(mcpIdpHeader),
 	}
 
 	rd.Headers = r.Header

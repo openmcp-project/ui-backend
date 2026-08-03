@@ -7,7 +7,7 @@ import (
 	"github.com/openmcp-project/ui-backend/pkg/k8s"
 )
 
-func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, controlPlaneName, crateToken string, crateKubeconfig k8s.KubeConfig) (k8s.KubeConfig, error) {
+func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, controlPlaneName, idpName, crateToken string, crateKubeconfig k8s.KubeConfig) (k8s.KubeConfig, error) {
 	namespace := fmt.Sprintf("project-%s--ws-%s", projectName, workspaceName)
 	path := fmt.Sprintf("/apis/core.open-control-plane.io/v2alpha1/namespaces/%s/controlplanes/%s", namespace, controlPlaneName)
 
@@ -23,16 +23,25 @@ func GetControlPlaneV2Kubeconfig(kube k8s.Kube, projectName, workspaceName, cont
 		return k8s.KubeConfig{}, err
 	}
 
-	ref, ok := cp.Status.Access["oidc_openmcp"]
-	if !ok {
+	// V2 exposes one access entry per IdP, keyed `oidc_<providerName>`. The system IdP is
+	// `oidc_openmcp` (used when no idp is selected); a custom IdP is `oidc_<idpName>`.
+	accessKey := "oidc_openmcp"
+	if idpName != "" {
+		accessKey = "oidc_" + idpName
+	}
+
+	ref, ok := cp.Status.Access[accessKey]
+	if !ok && idpName == "" {
+		// Legacy v2 control planes expose only a `default` access entry. Keep the
+		// fallback for the no-idp path; an explicitly selected idp must fail loudly.
 		ref, ok = cp.Status.Access["default"]
 	}
 	if !ok {
-		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 has no oidc_openmcp or default access entry")
+		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 has no %q access entry", accessKey)
 	}
 	secretName := ref.Name
 	if secretName == "" {
-		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 oidc_openmcp secret name is empty")
+		return k8s.KubeConfig{}, fmt.Errorf("control-plane v2 %q secret name is empty", accessKey)
 	}
 
 	secret := k8s.Secret{}
