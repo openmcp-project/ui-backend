@@ -3,9 +3,11 @@ package k8s
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -14,11 +16,68 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"k8s.io/api/apidiscovery/v2beta1"
 )
+
+// maxCacheableResponseBytes caps the size of a response body that the response
+// cache will store. Larger responses are served through but not cached to keep
+// the cache from growing unbounded.
+const maxCacheableResponseBytes = 1 << 20 // 1MiB
+
+// requestTimeout bounds how long a single api server request may take, so a hung
+// api server cannot pin a connection (and its goroutine) forever.
+const requestTimeout = 30 * time.Second
+
+// maxTransportCacheEntries bounds the number of cached transports. When the
+// limit is exceeded an arbitrary entry is evicted and its idle connections are
+// closed so eviction does not re-leak connection pools.
+const maxTransportCacheEntries = 128
+
+// transportCache is a bounded, concurrency-safe cache of *http.Transport keyed
+// by a hash of the TLS-affecting inputs. Reusing transports recovers connection
+// pooling and keep-alives that would otherwise leak on every request.
+type transportCache struct {
+	mu      sync.Mutex
+	entries map[string]*http.Transport
+	limit   int
+}
+
+func newTransportCache(limit int) *transportCache {
+	return &transportCache{
+		entries: make(map[string]*http.Transport),
+		limit:   limit,
+	}
+}
+
+// getOrCreate returns the cached transport for key, or builds one with build and
+// stores it. When the cache is full an existing entry is evicted and its idle
+// connections are closed.
+func (c *transportCache) getOrCreate(key string, build func() *http.Transport) *http.Transport {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if t, ok := c.entries[key]; ok {
+		return t
+	}
+
+	if len(c.entries) >= c.limit {
+		for k, evicted := range c.entries {
+			delete(c.entries, k)
+			evicted.CloseIdleConnections()
+			break
+		}
+	}
+
+	t := build()
+	c.entries[key] = t
+	return t
+}
+
+var sharedTransportCache = newTransportCache(maxTransportCacheEntries)
 
 func RequestApiServer(kube Kube, request Request, config KubeConfig, result interface{}) error {
 	if request.Headers == nil {
@@ -136,10 +195,33 @@ func (HttpKube) RequestApiServerRaw(request Request, config KubeConfig) (*http.R
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", user.User.Token))
 	}
 
+	// Build a cache key from all TLS-affecting inputs. The bearer token is
+	// deliberately excluded: it is a per-request header, not transport-level
+	// material. sha256 is used (not fnv) because a collision here would serve a
+	// transport built for a different cluster - a security issue.
+	keyHash := sha256.New()
+	keyHash.Write([]byte(cluster.Cluster.Server))
+	keyHash.Write([]byte{0})
+	keyHash.Write([]byte(cluster.Cluster.CertificateAuthorityData))
+	keyHash.Write([]byte{0})
+	keyHash.Write([]byte(user.User.ClientCertificateData))
+	keyHash.Write([]byte{0})
+	keyHash.Write([]byte(user.User.ClientKeyData))
+	transportKey := hex.EncodeToString(keyHash.Sum(nil))
+
+	transport := sharedTransportCache.getOrCreate(transportKey, func() *http.Transport {
+		return &http.Transport{
+			TLSClientConfig:     &tlsConfig,
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+			ForceAttemptHTTP2:   true,
+		}
+	})
+
 	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tlsConfig,
-		},
+		Transport: transport,
+		Timeout:   requestTimeout,
 	}
 
 	slog.Debug("requesting api server", "method", request.Method, "host", config.Clusters[0].Cluster.Server, "path", request.Path)
@@ -231,7 +313,7 @@ func (c cachingKube) RequestApiServerRaw(request Request, config KubeConfig) (*h
 	// this key is a unique identifier for the request - however, it is not guaranteed to be unique
 	key := fmt.Sprintf("%s %s %s %s %s %v", request.Method, request.Path, request.Body, request.Headers, request.Query, config)
 
-	h := fnv.New32()
+	h := fnv.New128()
 	_, err := h.Write([]byte(key))
 	if err != nil {
 		return nil, err
@@ -256,9 +338,16 @@ func (c cachingKube) RequestApiServerRaw(request Request, config KubeConfig) (*h
 	}
 	response, err := httputil.DumpResponse(res, true)
 	if err != nil {
+		// DumpResponse consumed/failed on res.Body; the caller receives an error
+		// and will never close it, so close it here to avoid leaking it.
+		res.Body.Close()
 		return nil, err
 	}
-	c.cache.Set(hashedKey, &response, cache.DefaultExpiration)
+	// Only cache responses up to a bounded size so the cache cannot grow
+	// unbounded with large bodies (it is otherwise TTL-eviction only).
+	if len(response) <= maxCacheableResponseBytes {
+		c.cache.Set(hashedKey, &response, cache.DefaultExpiration)
+	}
 	return res, nil
 }
 
