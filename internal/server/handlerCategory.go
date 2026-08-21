@@ -48,7 +48,7 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 	var config k8s.KubeConfig
 	if data.ProjectName != "" && data.WorkspaceName != "" && data.McpName != "" {
 		if data.McpVersion == "v2" {
-			config, err = openmcp.GetControlPlaneV2Kubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
+			config, err = openmcp.GetControlPlaneV2Kubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.McpIdp, data.CrateAuthorizationToken, crateKubeconfig)
 		} else {
 			config, err = openmcp.GetControlPlaneKubeconfig(s.crateKube, data.ProjectName, data.WorkspaceName, data.McpName, data.CrateAuthorizationToken, crateKubeconfig)
 		}
@@ -85,6 +85,25 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 	}
 
 	resultData := make([][]byte, 0)
+	// fetchResource performs a single api server request and returns the body,
+	// closing the response body via defer so it is released every iteration
+	// (a bare defer in the loop below would accumulate until function return).
+	fetchResource := func(apiReq k8s.Request) ([]byte, *HttpError) {
+		k8sResp, err := s.downstreamKube.RequestApiServerRaw(apiReq, config)
+		if err != nil {
+			slog.Error("failed to get managed resources", "err", err)
+			return nil, NewInternalServerError("failed to get managed resources")
+		}
+		defer k8sResp.Body.Close()
+
+		body, err := io.ReadAll(k8sResp.Body)
+		if err != nil {
+			slog.Error("failed to read data from response", "err", err)
+			return nil, NewInternalServerError("failed to read data from response")
+		}
+		return body, nil
+	}
+
 	for _, category := range categories {
 		for _, version := range category.Versions {
 			for _, resource := range version.Resources {
@@ -94,19 +113,12 @@ func _categoryHandler(s *shared, req *http.Request, res *response) (*response, *
 					Headers: data.Headers,
 				}
 
-				k8sResp, err := s.downstreamKube.RequestApiServerRaw(apiReq, config)
-				if err != nil {
-					slog.Error("failed to get managed resources", "err", err)
-					return nil, NewInternalServerError("failed to get managed resources")
+				body, httpErr := fetchResource(apiReq)
+				if httpErr != nil {
+					return nil, httpErr
 				}
 
-				data, err := io.ReadAll(k8sResp.Body)
-				if err != nil {
-					slog.Error("failed to read data from response", "err", err)
-					return nil, NewInternalServerError("failed to read data from response")
-				}
-
-				resultData = append(resultData, data)
+				resultData = append(resultData, body)
 			}
 		}
 	}
