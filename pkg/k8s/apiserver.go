@@ -172,11 +172,7 @@ func (HttpKube) RequestApiServerRaw(request Request, config KubeConfig) (*http.R
 		return nil, fmt.Errorf("failed to parse url: %v", err)
 	}
 
-	for k, v := range request.Query {
-		for _, vv := range v {
-			requestUrl.Query().Add(k, vv)
-		}
-	}
+	requestUrl.RawQuery = url.Values(request.Query).Encode()
 
 	req, err := http.NewRequest(request.Method, requestUrl.String(), request.Body)
 	if err != nil {
