@@ -1,7 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "github>openmcp-project/.github:renovate-config",
-    "group:allNonMajor"
+    "github>openmcp-project/.github:renovate-config"
   ]
 }
