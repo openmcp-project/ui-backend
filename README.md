@@ -65,6 +65,23 @@ Usage:
 - JsonPath: Add a header `X-jsonpath` with the jsonpath query
 - JQ: Add a header `X-jq` with the jq query
 
+## Verifying a Release
+
+Release images are signed keyless with [Sigstore](https://www.sigstore.dev/) by the release workflow.
+
+Verify an image with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
+
+```bash
+cosign verify \
+  --certificate-identity https://github.com/openmcp-project/ui-backend/.github/workflows/on-release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/openmcp-project/mcp-ui-backend:<version>
+```
+
+The command fails if the image is unsigned or was signed by anything other than that workflow on the `main` branch.
+
+Images built from `main` between releases are signed by `.github/workflows/main.yml` instead; replace the workflow file in the identity to verify those.
+
 ## Support, Feedback, Contributing
 
 This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/openmcp-project/ui-backend/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
